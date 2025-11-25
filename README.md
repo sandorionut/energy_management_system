@@ -1,93 +1,112 @@
-# DS2025_30242_Sandor_Ionut_Daniel_Assignment_1
+# Energy Management System
 
+**Student:** Sandor Ionut Daniel  
+**Group:** 30242  
+**Assignment:** 2 (Distributed Systems)
 
+## 1. Project Overview
+This project is a distributed Energy Management System designed to monitor and manage smart energy metering devices. It follows a **Microservices Architecture**, utilizing **Spring Boot** for backend services, **React** for the frontend, **RabbitMQ** for asynchronous communication, and **PostgreSQL** for data persistence. The entire system is containerized using **Docker**.
 
-## Getting started
+### Key Features
+*   **User Management**: Admin and Client roles, secure authentication (JWT).
+*   **Device Management**: CRUD operations for smart devices, mapping devices to users.
+*   **Monitoring**: Real-time ingestion of sensor data, hourly consumption calculation, and historical data visualization.
+*   **Device Simulator**: A standalone Java application that simulates smart energy meters sending data via RabbitMQ.
+*   **Chat System**: Real-time communication between Admins and Clients (WebSocket).
+*   **Security**: Role-Based Access Control (RBAC) enforced via API Gateway and Service layers.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+---
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## 2. Architecture
+The system consists of the following components:
 
-## Add your files
+### Microservices
+1.  **User Service** (`:8082`): Manages user accounts (Admin/Client).
+2.  **Device Service** (`:8083`): Manages smart devices and their association with users.
+3.  **Monitoring Service** (`:8084`): Consumes sensor data from RabbitMQ, stores measurements, and provides consumption statistics.
+4.  **Auth Service** (`:8081`): Handles login and JWT token generation.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+### Infrastructure
+*   **API Gateway (Traefik)**: Single entry point (`:80`) for all requests, handling routing and load balancing.
+*   **Message Broker (RabbitMQ)**: Handles device measurements and inter-service synchronization.
+*   **Databases**: Dedicated PostgreSQL instances for each microservice to ensure loose coupling.
+*   **Frontend**: React application serving the User and Admin dashboards.
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/sandorionut-group/ds2025_30242_sandor_ionut_daniel_assignment_1.git
-git branch -M main
-git push -uf origin main
-```
+---
 
-## Integrate with your tools
+## 3. Getting Started
 
-- [ ] [Set up project integrations](https://gitlab.com/sandorionut-group/ds2025_30242_sandor_ionut_daniel_assignment_1/-/settings/integrations)
+### Prerequisites
+*   **Docker Desktop** (installed and running)
+*   **Java 17+** (for running the simulator locally)
+*   **Maven** (optional, for local builds)
 
-## Collaborate with your team
+### Installation & Running
+The entire system is defined in `docker-compose.yml`. To start the application:
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+1.  Clone the repository.
+2.  Open a terminal in the project root.
+3.  Run the following command:
+    ```powershell
+    docker compose up -d --build
+    ```
+4.  Wait for all containers to start (approx. 1-2 minutes).
 
-## Test and Deploy
+### Accessing the Application
+*   **Frontend**: [http://localhost:3000](http://localhost:3000)
+*   **Traefik Dashboard**: [http://localhost:8080](http://localhost:8080)
+*   **RabbitMQ Management**: [http://localhost:15672](http://localhost:15672) (User: `devuser`, Pass: `devpass`)
 
-Use the built-in continuous integration in GitLab.
+---
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## 4. Usage Guide
 
-***
+### Default Credentials
+*   **Admin**: `admin@test.com` / `admin` (or create one via SQL if DB is empty)
+*   **Client**: Register a new account via the "Sign Up" page.
 
-# Editing this README
+### 1. Admin Workflow
+1.  Log in as Admin.
+2.  **Manage Users**: Create, update, or delete users.
+3.  **Manage Devices**: Create devices and assign them to users.
+4.  **View Consumption**: Go to "Manage Devices" and select any device to view its energy consumption chart.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### 2. Client Workflow
+1.  Log in as a Client.
+2.  **Dashboard**: View assigned devices.
+3.  **Charts**: Select a device and date to view hourly energy consumption.
 
-## Suggestions for a good README
+### 3. Running the Device Simulator
+The simulator generates realistic sensor data for testing.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+1.  Navigate to the `device-simulator` folder.
+2.  Edit `config.properties` (optional):
+    *   Set `device.id` to a valid Device ID from your database (copy from Admin UI).
+3.  Run the simulator:
+    *   **Windows**: Double-click `run-simulator.bat` or run `.\run-simulator.bat` in terminal.
+    *   **IDE**: Run `SimulatorApp.java`.
+4.  Observe the real-time updates on the Frontend Dashboard.
 
-## Name
-Choose a self-explaining name for your project.
+---
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+## 5. API Documentation
+Swagger UI is available for each microservice via the API Gateway:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+*   **User Service**: [http://localhost/user/swagger-ui/index.html](http://localhost/user/swagger-ui/index.html)
+*   **Device Service**: [http://localhost/device/swagger-ui/index.html](http://localhost/device/swagger-ui/index.html)
+*   **Monitoring Service**: [http://localhost/monitoring/swagger-ui/index.html](http://localhost/monitoring/swagger-ui/index.html)
+*   **Auth Service**: [http://localhost/auth/swagger-ui/index.html](http://localhost/auth/swagger-ui/index.html)
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+---
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## 6. Deployment Diagram
+*(See `SD_Project_Diagram_2.png` in the repository for the visual representation)*
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+The deployment follows a containerized approach where the React Frontend communicates with the backend via the Traefik Reverse Proxy. Services communicate asynchronously via RabbitMQ for critical data flows (measurements, synchronization).
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+---
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## 7. Troubleshooting
+*   **Docker fails to start**: Ensure ports 80, 3000, 5432-5436, and 5672 are free.
+*   **Simulator connection refused**: Ensure RabbitMQ is running (`docker ps`) and `config.properties` points to `localhost`.
+*   **No data in charts**: Ensure the simulator is running and using the correct `device.id`.
