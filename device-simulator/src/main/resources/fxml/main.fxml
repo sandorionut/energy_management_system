@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.LineChart?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Circle?>
+<?import javafx.scene.text.Font?>
+
+<VBox spacing="20.0" style="-fx-background-color: #f8f9fa;" xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ds2025.simulator.controller.MainController">
+    <padding>
+        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0"/>
+    </padding>
+
+    <!-- Header -->
+    <HBox alignment="CENTER_LEFT" spacing="15.0"
+          style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);">
+        <padding>
+            <Insets bottom="15.0" left="20.0" right="20.0" top="15.0"/>
+        </padding>
+        <Label text="Device Simulator" textFill="#202124">
+            <font>
+                <Font name="System Bold" size="24.0"/>
+            </font>
+        </Label>
+        <Region HBox.hgrow="ALWAYS"/>
+        <HBox alignment="CENTER" spacing="8.0">
+            <Circle fx:id="statusIndicator" fill="#ea4335" radius="6.0"/>
+            <Label fx:id="statusLabel" text="Stopped" textFill="#5f6368">
+                <font>
+                    <Font size="14.0"/>
+                </font>
+            </Label>
+        </HBox>
+    </HBox>
+
+    <HBox spacing="20.0" VBox.vgrow="ALWAYS">
+        <!-- Left Panel: Controls & Stats -->
+        <VBox spacing="20.0" minWidth="300.0" maxWidth="300.0">
+            <!-- Device Info Card -->
+            <VBox spacing="10.0"
+                  style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 0);">
+                <padding>
+                    <Insets bottom="20.0" left="20.0" right="20.0" top="20.0"/>
+                </padding>
+                <Label text="Device Configuration" textFill="#1a73e8">
+                    <font>
+                        <Font name="System Bold" size="16.0"/>
+                    </font>
+                </Label>
+                <Separator/>
+                <HBox spacing="10.0">
+                    <Label text="ID:" textFill="#5f6368" minWidth="60.0"/>
+                    <Label fx:id="deviceIdLabel" text="Loading..." textFill="#202124" wrapText="true"/>
+                </HBox>
+                <HBox spacing="10.0">
+                    <Label text="Name:" textFill="#5f6368" minWidth="60.0"/>
+                    <Label fx:id="deviceNameLabel" text="Loading..." textFill="#202124"/>
+                </HBox>
+            </VBox>
+
+            <!-- Controls Card -->
+            <VBox spacing="15.0"
+                  style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 0);">
+                <padding>
+                    <Insets bottom="20.0" left="20.0" right="20.0" top="20.0"/>
+                </padding>
+                <Label text="Controls" textFill="#1a73e8">
+                    <font>
+                        <Font name="System Bold" size="16.0"/>
+                    </font>
+                </Label>
+                <Separator/>
+                <Button fx:id="startBtn" maxWidth="Infinity" mnemonicParsing="false" onAction="#handleStart"
+                        style="-fx-background-color: #34a853; -fx-text-fill: white; -fx-cursor: hand;"
+                        text="START SIMULATION">
+                    <font>
+                        <Font name="System Bold" size="14.0"/>
+                    </font>
+                    <padding>
+                        <Insets bottom="10.0" top="10.0"/>
+                    </padding>
+                </Button>
+                <Button fx:id="stopBtn" disable="true" maxWidth="Infinity" mnemonicParsing="false"
+                        onAction="#handleStop"
+                        style="-fx-background-color: #ea4335; -fx-text-fill: white; -fx-cursor: hand;"
+                        text="STOP SIMULATION">
+                    <font>
+                        <Font name="System Bold" size="14.0"/>
+                    </font>
+                    <padding>
+                        <Insets bottom="10.0" top="10.0"/>
+                    </padding>
+                </Button>
+            </VBox>
+
+            <!-- Statistics Card -->
+            <VBox spacing="10.0"
+                  style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 0);"
+                  VBox.vgrow="ALWAYS">
+                <padding>
+                    <Insets bottom="20.0" left="20.0" right="20.0" top="20.0"/>
+                </padding>
+                <Label text="Statistics" textFill="#1a73e8">
+                    <font>
+                        <Font name="System Bold" size="16.0"/>
+                    </font>
+                </Label>
+                <Separator/>
+                <HBox spacing="10.0">
+                    <Label text="Total Sent:" textFill="#5f6368" minWidth="100.0"/>
+                    <Label fx:id="totalSentLabel" text="0" textFill="#202124" style="-fx-font-weight: bold;"/>
+                </HBox>
+                <HBox spacing="10.0">
+                    <Label text="Last Value:" textFill="#5f6368" minWidth="100.0"/>
+                    <Label fx:id="lastValueLabel" text="0.00 kWh" textFill="#202124" style="-fx-font-weight: bold;"/>
+                </HBox>
+            </VBox>
+        </VBox>
+
+        <!-- Right Panel: Chart & Log -->
+        <VBox spacing="20.0" HBox.hgrow="ALWAYS">
+            <!-- Chart Card -->
+            <VBox style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 0);"
+                  VBox.vgrow="ALWAYS">
+                <padding>
+                    <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+                </padding>
+                <Label text="Real-time Consumption (kWh)" textFill="#5f6368">
+                    <padding>
+                        <Insets left="10.0" top="5.0"/>
+                    </padding>
+                    <font>
+                        <Font size="14.0"/>
+                    </font>
+                </Label>
+                <LineChart fx:id="consumptionChart" createSymbols="false" legendVisible="false" animated="false">
+                    <xAxis>
+                        <CategoryAxis label="Time" side="BOTTOM"/>
+                    </xAxis>
+                    <yAxis>
+                        <NumberAxis label="kWh" side="LEFT"/>
+                    </yAxis>
+                </LineChart>
+            </VBox>
+
+            <!-- Log Card -->
+            <VBox spacing="10.0"
+                  style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 0);"
+                  prefHeight="200.0">
+                <padding>
+                    <Insets bottom="15.0" left="15.0" right="15.0" top="15.0"/>
+                </padding>
+                <Label text="Activity Log" textFill="#1a73e8">
+                    <font>
+                        <Font name="System Bold" size="14.0"/>
+                    </font>
+                </Label>
+                <TextArea fx:id="logArea" editable="false" wrapText="true"
+                          style="-fx-font-family: 'Consolas', 'Monospace'; -fx-control-inner-background: #f1f3f4;"
+                          VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </VBox>
+    </HBox>
+</VBox>

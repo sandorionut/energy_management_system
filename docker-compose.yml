@@ -1,0 +1,344 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: devuser
+      RABBITMQ_DEFAULT_PASS: devpass
+    networks: [ sd_net ]
+
+  reverse-proxy:
+    image: traefik:v3.2
+    container_name: reverse-proxy
+    command:
+      - --api.insecure=true
+      - --providers.docker.network=sd_net
+      - --accesslog=true
+      - --accesslog.filepath=/var/log/traefik/access.log
+      - --log.level=DEBUG
+      - --entrypoints.web.address=:80
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_logs:/var/log/traefik
+    networks: [ sd_net ]
+
+  jwks:
+    image: nginx:alpine
+    container_name: jwks
+    volumes:
+      - ./jwks:/usr/share/nginx/html:ro
+    networks: [ sd_net ]
+
+  jwt-validator:
+    image: simonschneider/traefik-jwt-decode:latest
+    container_name: jwt-validator
+    environment:
+      - JWKS_URL=http://jwks/jwks.json
+      - CLAIM_MAPPINGS=sub:X-User,role:X-Role,userId:X-UserId
+    networks: [ sd_net ]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:80"
+    networks: [ sd_net ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=sd_net"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`) && Host(`localhost`) && !PathPrefix(`/user`) && !PathPrefix(`/auth`) && !PathPrefix(`/device`) && !PathPrefix(`/api`)"
+      - "traefik.http.routers.frontend.priority=1"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+  db-user:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: ds_user
+    ports: [ "5433:5432" ]
+    volumes:
+      - db_user_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL","pg_isready -U postgres -d ds_user" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [ sd_net ]
+
+  db-auth:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: ds_auth
+    ports: [ "5434:5432" ]
+    volumes:
+      - db_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL","pg_isready -U postgres -d ds_auth" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [ sd_net ]
+
+  db-device:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: ds_device
+    ports: [ "5435:5432" ]
+    volumes:
+      - db_device_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL","pg_isready -U postgres -d ds_device" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [ sd_net ]
+
+  db-monitoring:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: ds_monitoring
+    ports: [ "5436:5432" ]
+    volumes:
+      - db_monitoring_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL","pg_isready -U postgres -d ds_monitoring" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [ sd_net ]
+  
+  user-service:
+    build:
+      context: .
+      dockerfile: ./user-service/Dockerfile
+    container_name: user-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-user:5432/ds_user
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: root
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: docker
+      SPRINGDOC_SWAGGER_UI_CONFIG_URL: /user/v3/api-docs/swagger-config
+      SPRINGDOC_SWAGGER_UI_URLS_0_URL: /user/v3/api-docs
+      SPRINGDOC_SWAGGER_UI_URLS_0_NAME: User Service API
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: devuser
+      SPRING_RABBITMQ_PASSWORD: devpass
+      SPRING_RABBITMQ_LISTENER_SIMPLE_AUTO_STARTUP: "true"
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 1
+      SPRING_RABBITMQ_LISTENER_SIMPLE_DEFAULT_REQUEUE_REJECTED: "false"
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 1
+    depends_on:
+      db-user:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+    networks: [ sd_net ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=sd_net"
+      - "traefik.http.routers.user-swagger.rule=PathPrefix(`/user/swagger-ui`) || PathPrefix(`/user/v3/api-docs`) || PathPrefix(`/user/webjars`) || PathPrefix(`/user/swagger-resources`)"
+      - "traefik.http.routers.user-swagger.priority=1001"
+      - "traefik.http.routers.user-swagger.entrypoints=web"
+      - "traefik.http.routers.user-swagger.middlewares=user-strip"
+      - "traefik.http.routers.user-swagger.service=user"
+      - "traefik.http.routers.user.entrypoints=web"
+      - "traefik.http.routers.user.rule=PathPrefix(`/user`) && !PathPrefix(`/user/swagger-ui`) && !PathPrefix(`/user/v3/api-docs`) && !PathPrefix(`/user/webjars`)"
+      - "traefik.http.routers.user.priority=100"
+      - "traefik.http.routers.user.middlewares=user-chain"
+      - "traefik.http.services.user.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.user-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.user-cors.headers.accesscontrolalloworiginlist=http://localhost:3000"
+      - "traefik.http.middlewares.user-cors.headers.accesscontrolallowheaders=Authorization,Content-Type"
+      - "traefik.http.middlewares.user-cors.headers.addvaryheader=true"
+      - "traefik.http.middlewares.user-jwt.forwardauth.address=http://jwt-validator:8080"
+      - "traefik.http.middlewares.user-jwt.forwardauth.authResponseHeaders=X-User,X-Role,X-UserId"
+      - "traefik.http.middlewares.user-chain.chain.middlewares=user-cors,user-jwt,user-strip"
+      - "traefik.http.middlewares.user-strip.stripprefix.prefixes=/user"
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./auth-service/Dockerfile
+    container_name: auth-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-auth:5432/ds_auth
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: root
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: docker
+      SPRINGDOC_SWAGGER_UI_CONFIG_URL: /auth/v3/api-docs/swagger-config
+      SPRINGDOC_SWAGGER_UI_URLS_0_URL: /auth/v3/api-docs
+      SPRINGDOC_SWAGGER_UI_URLS_0_NAME: Auth Service API
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
+      JWT_SECRET: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuasf
+      JWT_EXPIRATION: 86400000
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: devuser
+      SPRING_RABBITMQ_PASSWORD: devpass
+      SPRING_RABBITMQ_LISTENER_SIMPLE_AUTO_STARTUP: "true"
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 1
+      SPRING_RABBITMQ_LISTENER_SIMPLE_DEFAULT_REQUEUE_REJECTED: "false"
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 1
+    depends_on:
+      db-auth:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    networks: [ sd_net ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=sd_net"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/auth`)"
+      - "traefik.http.middlewares.auth-strip.stripprefix.prefixes=/auth"
+      - "traefik.http.routers.auth.middlewares=auth-strip"
+      - "traefik.http.services.auth.loadbalancer.server.port=8080"
+
+  device-service:
+    build:
+      context: .
+      dockerfile: ./device-service/Dockerfile
+    container_name: device-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-device:5432/ds_device
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: root
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: docker
+      SPRINGDOC_SWAGGER_UI_CONFIG_URL: /device/v3/api-docs/swagger-config
+      SPRINGDOC_SWAGGER_UI_URLS_0_URL: /device/v3/api-docs
+      SPRINGDOC_SWAGGER_UI_URLS_0_NAME: Device Service API
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: devuser
+      SPRING_RABBITMQ_PASSWORD: devpass
+      SPRING_RABBITMQ_LISTENER_SIMPLE_AUTO_STARTUP: "true"
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 1
+      SPRING_RABBITMQ_LISTENER_SIMPLE_DEFAULT_REQUEUE_REJECTED: "false"
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 1
+    depends_on:
+      db-device:
+        condition: service_healthy
+    ports:
+      - "8083:8080"
+    networks: [ sd_net ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=sd_net"
+      - "traefik.http.routers.device-swagger.rule=PathPrefix(`/device/swagger-ui`) || PathPrefix(`/device/v3/api-docs`) || PathPrefix(`/device/webjars`) || PathPrefix(`/device/swagger-resources`)"
+      - "traefik.http.routers.device-swagger.priority=1001"
+      - "traefik.http.routers.device-swagger.entrypoints=web"
+      - "traefik.http.routers.device-swagger.middlewares=device-strip"
+      - "traefik.http.routers.device-swagger.service=device"
+      - "traefik.http.routers.device.entrypoints=web"
+      - "traefik.http.routers.device.rule=PathPrefix(`/device`) && !PathPrefix(`/device/swagger-ui`) && !PathPrefix(`/device/v3/api-docs`) && !PathPrefix(`/device/webjars`)"
+      - "traefik.http.routers.device.priority=100"
+      - "traefik.http.routers.device.middlewares=device-chain"
+      - "traefik.http.services.device.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.device-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.device-cors.headers.accesscontrolalloworiginlist=http://localhost:3000"
+      - "traefik.http.middlewares.device-cors.headers.accesscontrolallowheaders=Authorization,Content-Type"
+      - "traefik.http.middlewares.device-cors.headers.addvaryheader=true"
+      - "traefik.http.middlewares.device-jwt.forwardauth.address=http://jwt-validator:8080"
+      - "traefik.http.middlewares.device-jwt.forwardauth.authResponseHeaders=X-User,X-Role,X-UserId"
+      - "traefik.http.middlewares.device-chain.chain.middlewares=device-cors,device-jwt,device-strip"
+      - "traefik.http.middlewares.device-strip.stripprefix.prefixes=/device"
+
+  monitoring-service:
+    build:
+      context: .
+      dockerfile: ./monitoring-service/Dockerfile
+    container_name: monitoring-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-monitoring:5432/ds_monitoring
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: root
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: devuser
+      SPRING_RABBITMQ_PASSWORD: devpass
+      SPRING_RABBITMQ_LISTENER_SIMPLE_AUTO_STARTUP: "true"
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 1
+      SPRING_RABBITMQ_LISTENER_SIMPLE_DEFAULT_REQUEUE_REJECTED: "false"
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 1
+      SPRINGDOC_SWAGGER_UI_CONFIG_URL: /monitoring/v3/api-docs/swagger-config
+      SPRINGDOC_SWAGGER_UI_URLS_0_URL: /monitoring/v3/api-docs
+      SPRINGDOC_SWAGGER_UI_URLS_0_NAME: Monitoring Service API
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,metrics"
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: "always"
+      LOGGING_LEVEL_COM_DS2025_MONITORINGSERVICE: "INFO"
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_AMQP: "DEBUG"
+      LOGGING_LEVEL_ORG_HIBERNATE_SQL: "DEBUG"
+
+    depends_on:
+      db-monitoring:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+
+    ports:
+      - "8084:8080"
+
+    networks: [ sd_net ]
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=sd_net"
+      - "traefik.http.routers.monitoring-swagger.rule=PathPrefix(`/monitoring/swagger-ui`) || PathPrefix(`/monitoring/v3/api-docs`) || PathPrefix(`/monitoring/webjars`) || PathPrefix(`/monitoring/swagger-resources`)"
+      - "traefik.http.routers.monitoring-swagger.priority=1001"
+      - "traefik.http.routers.monitoring-swagger.entrypoints=web"
+      - "traefik.http.routers.monitoring-swagger.middlewares=monitoring-strip"
+      - "traefik.http.routers.monitoring-swagger.service=monitoring"
+      - "traefik.http.routers.monitoring.entrypoints=web"
+      - "traefik.http.routers.monitoring.rule=PathPrefix(`/monitoring`) && !PathPrefix(`/monitoring/swagger-ui`) && !PathPrefix(`/monitoring/v3/api-docs`) && !PathPrefix(`/monitoring/webjars`)"
+      - "traefik.http.routers.monitoring.priority=100"
+      - "traefik.http.routers.monitoring.middlewares=monitoring-chain"
+      - "traefik.http.services.monitoring.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.monitoring-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.monitoring-cors.headers.accesscontrolalloworiginlist=http://localhost:3000"
+      - "traefik.http.middlewares.monitoring-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-User-Id,X-User-Role"
+      - "traefik.http.middlewares.monitoring-cors.headers.addvaryheader=true"
+      - "traefik.http.middlewares.monitoring-jwt.forwardauth.address=http://jwt-validator:8080"
+      - "traefik.http.middlewares.monitoring-jwt.forwardauth.authResponseHeaders=X-User,X-Role,X-UserId"
+      - "traefik.http.middlewares.monitoring-chain.chain.middlewares=monitoring-cors,monitoring-jwt,monitoring-strip"
+      - "traefik.http.middlewares.monitoring-strip.stripprefix.prefixes=/monitoring"
+
+volumes:
+  db_user_data:
+  db_auth_data:
+  db_device_data:
+  db_monitoring_data:
+  traefik_logs:
+
+networks:
+  sd_net:
+    external: true
+    name: sd_net

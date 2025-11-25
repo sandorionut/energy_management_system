@@ -1,0 +1,22 @@
+[
+  {
+    "id": "14078c42-32db-4795-b153-1d2fa84c3b45",
+    "name": "TV",
+    "maxConsumption": 5.2
+  },
+  {
+    "id": "83ef7ba5-1038-42f2-9087-571c410f2144",
+    "name": "AC",
+    "maxConsumption": 3.3
+  },
+  {
+    "id": "a12e02e1-411b-4dbe-a3bc-9957032feb6a",
+    "name": "Laptop",
+    "maxConsumption": 2.1
+  },
+  {
+    "id": "486c413a-a9d1-4b13-a584-451adbf6ef00",
+    "name": "PC",
+    "maxConsumption": 2.7
+  }
+]
