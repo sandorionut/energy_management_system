@@ -1,9 +1,5 @@
 # Energy Management System
 
-**Student:** Sandor Ionut Daniel  
-**Group:** 30242  
-**Assignment:** 2 (Distributed Systems)
-
 ## 1. Project Overview
 This project is a distributed Energy Management System designed to monitor and manage smart energy metering devices. It follows a **Microservices Architecture**, utilizing **Spring Boot** for backend services, **React** for the frontend, **RabbitMQ** for asynchronous communication, and **PostgreSQL** for data persistence. The entire system is containerized using **Docker**.
 
@@ -12,7 +8,6 @@ This project is a distributed Energy Management System designed to monitor and m
 *   **Device Management**: CRUD operations for smart devices, mapping devices to users.
 *   **Monitoring**: Real-time ingestion of sensor data, hourly consumption calculation, and historical data visualization.
 *   **Device Simulator**: A standalone Java application that simulates smart energy meters sending data via RabbitMQ.
-*   **Chat System**: Real-time communication between Admins and Clients (WebSocket).
 *   **Security**: Role-Based Access Control (RBAC) enforced via API Gateway and Service layers.
 
 ---
