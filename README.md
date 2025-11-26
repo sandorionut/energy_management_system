@@ -94,14 +94,7 @@ Swagger UI is available for each microservice via the API Gateway:
 
 ---
 
-## 6. Deployment Diagram
-*(See `SD_Project_Diagram_2.png` in the repository for the visual representation)*
-
-The deployment follows a containerized approach where the React Frontend communicates with the backend via the Traefik Reverse Proxy. Services communicate asynchronously via RabbitMQ for critical data flows (measurements, synchronization).
-
----
-
-## 7. Troubleshooting
+## 6. Troubleshooting
 *   **Docker fails to start**: Ensure ports 80, 3000, 5432-5436, and 5672 are free.
 *   **Simulator connection refused**: Ensure RabbitMQ is running (`docker ps`) and `config.properties` points to `localhost`.
 *   **No data in charts**: Ensure the simulator is running and using the correct `device.id`.
